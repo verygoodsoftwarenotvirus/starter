@@ -1,0 +1,156 @@
+concurrency:
+  group: ${{ github.ref }}
+
+on: # [pull_request]
+  push:
+    branches:
+      - dev
+
+name: deploy
+jobs:
+  infrastructure:
+    timeout-minutes: 35
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ '1.22.x' ]
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: authenticate with GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.DEV_GOOGLE_CLOUD_CREDENTIALS }}'
+
+      # Setup gcloud CLI
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Authorize Docker push to pkg.dev
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+          cli_config_credentials_token: ${{ secrets.TERRAFORM_CLOUD_API_TOKEN  }}
+
+      - name: Terraform Init
+        working-directory: environments/dev/terraform
+        id: init
+        run: terraform init
+
+      - name: Build data changes cloud function directory
+        run: ./scripts/build_cloud_function.sh data_changes
+
+      - name: Build outbound outbound_emailer cloud function directory
+        run: ./scripts/build_cloud_function.sh outbound_emailer
+
+      - name: Build search indexer cloud function directory
+        run: ./scripts/build_cloud_function.sh search_indexer
+
+      - name: Build webhook executor cloud function directory
+        run: ./scripts/build_cloud_function.sh webhook_executor
+
+      - name: copy API server config file
+        working-directory: environments/dev
+        run: |
+          cp config_files/service-config.json terraform/service-config.json
+
+      - name: Terraform Validate
+        working-directory: environments/dev/terraform
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: environments/dev/terraform
+
+  deploy-api-server:
+    needs: [infrastructure]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: authenticate with GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.DEV_GOOGLE_CLOUD_CREDENTIALS }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Authorize Docker push to pkg.dev
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Build and push API server container
+        run: |
+          docker build --tag us-central1-docker.pkg.dev/project-name/containers/api_server:${{  github.sha }} --file environments/dev/dockerfiles/api_server.Dockerfile .
+          docker build --tag us-central1-docker.pkg.dev/project-name/containers/api_server:latest --file environments/dev/dockerfiles/api_server.Dockerfile .
+          docker push us-central1-docker.pkg.dev/project-name/containers/api_server:${{  github.sha }}
+          docker push us-central1-docker.pkg.dev/project-name/containers/api_server:latest
+
+      # if this step fails, you need to add the `Service Account User` role to the GitHub Actions IAM Principal.
+      - id: deploy-api-server
+        uses: google-github-actions/deploy-cloudrun@v1
+        with:
+          service: 'api-server'
+          project_id: 'project-name'
+          image: 'us-central1-docker.pkg.dev/project-name/containers/api_server'
+
+  search-index-scheduler-container:
+    needs: [infrastructure]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: authenticate with GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.DEV_GOOGLE_CLOUD_CREDENTIALS }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Authorize Docker push to pkg.dev
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Build and push search data index scheduler container
+        run: |
+          docker build --tag us-central1-docker.pkg.dev/project-name/containers/search-data-index-scheduler:${{  github.sha }} --file environments/dev/dockerfiles/search_data_index_scheduler.Dockerfile .
+          docker build --tag us-central1-docker.pkg.dev/project-name/containers/search-data-index-scheduler:latest --file environments/dev/dockerfiles/search_data_index_scheduler.Dockerfile .
+          docker push us-central1-docker.pkg.dev/project-name/containers/search-data-index-scheduler:${{  github.sha }}
+          docker push us-central1-docker.pkg.dev/project-name/containers/search-data-index-scheduler:latest
+
+  email-prober-container:
+    needs: [infrastructure]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: authenticate with GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.DEV_GOOGLE_CLOUD_CREDENTIALS }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Authorize Docker push to pkg.dev
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      - name: Build and push email prober container
+        run: |
+          docker build --tag us-central1-docker.pkg.dev/project-name/containers/email-prober:${{  github.sha }} --file environments/dev/dockerfiles/email_prober.Dockerfile .
+          docker build --tag us-central1-docker.pkg.dev/project-name/containers/email-prober:latest --file environments/dev/dockerfiles/email_prober.Dockerfile .
+          docker push us-central1-docker.pkg.dev/project-name/containers/email-prober:${{  github.sha }}
+          docker push us-central1-docker.pkg.dev/project-name/containers/email-prober:latest

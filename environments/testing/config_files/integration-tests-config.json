@@ -1,0 +1,150 @@
+{
+	"observability": {
+		"logging": {
+			"level": 0,
+			"provider": "slog"
+		},
+		"tracing": {
+			"otel": {
+				"collector_endpoint": "http://tracing-server:14268/api/traces",
+				"service_name": "COMPANY_NAME_service",
+				"spanCollectionProbability": 1
+			},
+			"provider": "otel"
+		}
+	},
+	"email": {
+		"sendgrid": null,
+		"mailgun": null,
+		"mailjet": null,
+		"provider": ""
+	},
+	"analytics": {
+		"segment": null,
+		"posthog": null,
+		"rudderstack": null,
+		"provider": ""
+	},
+	"search": {
+		"algolia": null,
+		"elasticsearch": null,
+		"provider": ""
+	},
+	"featureFlags": {
+		"LaunchDarkly": null,
+		"PostHog": null,
+		"Provider": ""
+	},
+	"encoding": {
+		"contentType": "application/json"
+	},
+	"meta": {
+		"runMode": "testing",
+		"debug": false
+	},
+	"routing": {
+		"provider": "chi",
+		"enableCORSForLocalhost": true
+	},
+	"events": {
+		"consumers": {
+			"provider": "redis",
+			"sqs": {
+				"messageQueueAddress": ""
+			},
+			"pubsub": {},
+			"redis": {
+				"username": "",
+				"queueAddress": [
+					"worker_queue:6379"
+				]
+			}
+		},
+		"publishers": {
+			"provider": "redis",
+			"sqs": {
+				"messageQueueAddress": ""
+			},
+			"pubsub": {},
+			"redis": {
+				"username": "",
+				"queueAddress": [
+					"worker_queue:6379"
+				]
+			}
+		}
+	},
+	"server": {
+		"startupDeadline": 60000000000,
+		"httpPort": 8000,
+		"debug": false
+	},
+	"database": {
+		"oauth2TokenEncryptionKey": "HEREISA32CHARSECRETWHICHISMADEUP",
+		"connectionDetails": "postgres://dbuser:hunter2@pgdatabase:5432/service-name?sslmode=disable",
+		"debug": true,
+		"logQueries": true,
+		"runMigrations": true,
+		"maxPingAttempts": 50,
+		"pingWaitPeriod": 1500000000
+	},
+	"services": {
+		"auditLogEntries": {},
+		"serviceSettingConfigurations": {
+			"dataChangesTopicName": "data_changes"
+		},
+		"serviceSettings": {
+			"dataChangesTopicName": "data_changes"
+		},
+		"accounts": {
+			"dataChangesTopicName": "data_changes"
+		},
+		"userNotifications": {
+			"dataChangesTopicName": "data_changes"
+		},
+		"users": {
+			"dataChangesTopicName": "data_changes",
+			"publicMediaURLPrefix": "",
+			"uploads": {
+				"storageConfig": {
+					"bucketName": "avatars",
+					"provider": "memory"
+				},
+				"debug": false
+			}
+		},
+		"oauth2Clients": {
+			"creationEnabled": false
+		},
+		"webhooks": {
+			"dataChangesTopicName": "data_changes",
+			"debug": false
+		},
+		"accountInvitations": {
+			"dataChangesTopicName": "data_changes",
+			"debug": false
+		},
+		"auth": {
+			"sso": {
+				"google": {}
+			},
+			"dataChanges": "data_changes",
+			"cookies": {
+				"name": "service_name_api_cookie",
+				"domain": ".whatever.gov",
+				"hashKey": "HEREISA32CHARSECRETWHICHISMADEUP",
+				"blockKey": "DIFFERENT32CHARSECRETTHATIMADEUP",
+				"lifetime": 86400000000000
+			},
+			"oauth2": {
+				"domain": "http://localhost:9000",
+				"accessTokenLifespan": 3600000000000,
+				"refreshTokenLifespan": 3600000000000,
+				"debug": false
+			},
+			"enableUserSignup": true,
+			"minimumUsernameLength": 3,
+			"minimumPasswordLength": 8
+		}
+	}
+}

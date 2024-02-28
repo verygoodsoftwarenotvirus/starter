@@ -1,0 +1,51 @@
+version: "3.8"
+services:
+    worker_queue:
+        image: redis:7-bullseye
+        container_name: "worker_queue"
+        logging:
+          driver: none
+    postgres:
+        hostname: "pgdatabase"
+        container_name: "database"
+        image: postgres:15
+        environment:
+            POSTGRES_DB: 'service-name'
+            POSTGRES_PASSWORD: 'hunter2'
+            POSTGRES_USER: 'dbuser'
+        logging:
+            driver: none
+        ports:
+            - '5432:5432'
+    queue_loader:
+      environment:
+        TARGET_ADDRESS: 'http://api_server:8000'
+        CONFIGURATION_FILEPATH: '/etc/config'
+      volumes:
+        - source: '../../'
+          target: '/go/src/github.com/verygoodsoftwarenotvirus/starter'
+          type: 'bind'
+        - source: '../../local/config_files/queue-loader-config.json'
+          target: '/etc/config'
+          type: 'bind'
+      build:
+        context: '../../..'
+        dockerfile: 'environments/local/queue_loader.Dockerfile'
+    api-server:
+      container_name: "api_server"
+      depends_on:
+        - queue_loader
+      environment:
+        CONFIGURATION_FILEPATH: '/etc/config'
+      ports:
+        - '8000:8000'
+      volumes:
+        - source: '../../../environments/local/config_files/service-config.json'
+          target: '/etc/config'
+          type: 'bind'
+        - source: '../../..'
+          target: '/go/src/github.com/verygoodsoftwarenotvirus/starter'
+          type: 'bind'
+      build:
+        context: '../../..'
+        dockerfile: 'environments/local/server.Dockerfile'

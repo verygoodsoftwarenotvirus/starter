@@ -1,0 +1,44 @@
+on:
+  pull_request:
+    paths:
+      - pkg/**
+      - cmd/**
+      - internal/**
+      - tests/**
+      - go.mod
+      - go.sum
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+name: build
+jobs:
+  run:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ '1.22.x' ]
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: authenticate with GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.DEV_GOOGLE_CLOUD_CREDENTIALS }}'
+
+      - name: Build data changes cloud function directory
+        run: ./scripts/build_cloud_function.sh data_changes
+
+      - name: Build outbound outbound_emailer cloud function directory
+        run: ./scripts/build_cloud_function.sh outbound_emailer
+
+      - name: Build search indexer cloud function directory
+        run: ./scripts/build_cloud_function.sh search_indexer

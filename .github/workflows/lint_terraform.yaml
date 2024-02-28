@@ -1,0 +1,58 @@
+on: # [gollum]
+  pull_request:
+    paths:
+      - environments/dev/terraform/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+name: Lint Terraform code
+jobs:
+  terraform:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ '1.22.x' ]
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+          cli_config_credentials_token: ${{ secrets.TERRAFORM_CLOUD_API_TOKEN  }}
+
+      - name: Terraform Init
+        working-directory: environments/dev/terraform
+        id: init
+        run: terraform init
+
+      # begin things have to be done for terraform to succeed
+
+      - name: Build data changes cloud function directory
+        run: ./scripts/build_cloud_function.sh data_changes
+
+      - name: copy server config file
+        working-directory: environments/dev
+        run: |
+          cp config_files/service-config.json terraform/service-config.json
+
+      # end things have to be done for terraform to succeed
+
+      - name: Terraform Validate
+        working-directory: environments/dev/terraform
+        id: validate
+        run: terraform validate -no-color
+
+      - name: Check formatting
+        working-directory: environments/dev/terraform
+        id: fmt
+        run: terraform fmt -check

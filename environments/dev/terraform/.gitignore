@@ -1,0 +1,7 @@
+*.json
+*.yaml
+*.config
+.terraform/
+.terraform.lock.hcl
+
+data_changes_cloud_function/

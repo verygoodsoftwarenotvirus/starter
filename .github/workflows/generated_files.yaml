@@ -1,0 +1,81 @@
+on: # [gollum]
+  pull_request:
+    paths:
+      - cmd/**
+      - pkg/**
+      - internal/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+name: generated_files
+jobs:
+  queries:
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        go-version: [ '1.22.x' ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Ensure configs can be generated
+        run: make queries
+
+      - name: Check for changes
+        run: git diff --exit-code
+
+      - name: Check for struct usage
+        run: go run github.com/verygoodsoftwarenotvirus/starter/cmd/tools/sqlcstructchecker
+
+  configs:
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        go-version: [ '1.22.x' ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Ensure configs can be generated
+        run: make configs
+
+      - name: Check for changes
+        run: git diff --exit-code
+
+  dependency_injection:
+    timeout-minutes: 10
+    strategy:
+     matrix:
+       go-version: [ '1.22.x' ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install wire
+        run: go install github.com/google/wire/cmd/wire@latest
+
+      - name: Ensure dependency injection code can be generated
+        run: make rewire
+
+      - name: Check for changes
+        run: git diff --exit-code

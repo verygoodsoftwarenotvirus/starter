@@ -1,0 +1,31 @@
+on: # [gollum]
+  pull_request:
+    paths:
+      - pkg/**
+      - internal/**
+      - go.mod
+      - go.sum
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+name: unit tests
+jobs:
+  run:
+    timeout-minutes: 25
+    strategy:
+      matrix:
+        go-version: [ '1.22.x' ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: run unit tests
+        run: make test

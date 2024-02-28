@@ -1,0 +1,23 @@
+on: # [gollum]
+  pull_request:
+    paths:
+      - pkg/**
+      - cmd/**
+      - internal/**
+      - tests/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+name: lint
+jobs:
+  golang:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Lint
+        run: make lint
